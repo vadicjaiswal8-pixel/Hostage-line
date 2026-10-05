@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HOSTAGE LINE</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#0b0b0d"><link rel="icon" href="/icon-192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0b0d;color:#d8c9a3;font:15px/1.45 "Courier New",monospace;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#a{max-width:560px;margin:auto;padding:12px}h1{color:#c0392b;letter-spacing:3px;text-align:center}
+button,select,input{font:inherit;background:#17171b;color:#e8d9b0;border:1px solid #4a3b22;padding:12px;border-radius:6px;width:100%;margin:4px 0}
+button{background:#2a1512;border-color:#c0392b;cursor:pointer}button:disabled{opacity:.4}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #4a3b22;padding-bottom:6px}
+#tm{font-size:28px;color:#c0392b}.tabs{display:flex;gap:4px;overflow-x:auto;margin:8px 0}.tabs button{width:auto;white-space:nowrap;padding:8px 10px;background:#17171b;border-color:#4a3b22}
+.tabs button.on{border-color:#e0a030;color:#e0a030}.box{background:#121215;border:1px solid #2b2b31;border-radius:6px;padding:8px;margin:6px 0}
+.c{color:#e0a030}.y{color:#8fb8ff}.bg{color:#888;font-style:italic}.s{color:#c0392b}.big{font-size:22px;text-align:center;margin:10px}
+</style></head><body><div id="a"></div><script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36)),S=null,ws,off=0,tab='',code=localStorage.code||'',msg='',dc='Rohan Mehta',dl='Old Textile Mill',wake;
+function conn(){ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
+ ws.onopen=()=>{msg='';if(code)send({t:'join',code});draw()};
+ ws.onmessage=e=>{const d=JSON.parse(e.data);if(d.err){msg=d.err;if(d.err!='Room full'){localStorage.removeItem('code');code='';S=null}}else{S=d;off=d.now-Date.now();code=d.code;localStorage.code=code;msg='';if(!tab)tab=d.role=='negotiator'?'call':'dossier'}draw()};
+ ws.onclose=()=>{setTimeout(conn,1500);msg='Reconnecting...';draw()}}
+const send=o=>ws&&ws.readyState==1&&ws.send(JSON.stringify({...o,pid}));
+const rem=()=>Math.max(0,S.endAt-(Date.now()+off));
+const fmt=ms=>{const s=Math.ceil(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const li=a=>a.map(x=>`<div class="box">${esc(x)}</div>`).join('');
+function draw(){const a=$('#a'),old=$('#ci'),v=old?old.value:'',foc=old&&document.activeElement==old;
+ if(!S){a.innerHTML=`<h1>HOSTAGE LINE</h1><p>Two players. Half the truth each. Solve it together before time runs out.</p><div class="s">${esc(msg)}</div><button onclick="send({t:'create'})">CREATE ROOM</button><input id="jc" placeholder="ROOM CODE" maxlength="6" style="text-transform:uppercase"><button onclick="code=$('#jc').value.toUpperCase();send({t:'join',code})">JOIN ROOM</button>`;return}
+ if(S.status=='wait'||!S.partner&&S.status=='wait'){a.innerHTML=`<h1>HOSTAGE LINE</h1><div class="big">Room code<br><span class="c">${S.code}</span></div><p>Waiting for your partner. Share this code. First in is the Negotiator, second is the Analyst.</p>`;return}
+ const neg=S.role=='negotiator',tabs=neg?['call','chat','hints','dispatch']:['dossier','suspects','logs','map','trains','sounds','chat','dispatch'];
+ let h=`<div class="top"><div><b>${neg?'NEGOTIATOR':'ANALYST'}</b> <small>${S.code}</small><div class="s">${esc(msg)}</div></div><div id="tm">${fmt(rem())}</div></div>`;
+ if(S.res){const r=S.res,t={win:'CASE SOLVED. Anika is rescued.',partial:'PARTIAL. Anika is safe but the culprit escaped.',lose:'FAILED. Anika is lost.'}[r.kind];
+  h+=`<div class="big ${r.kind=='win'?'c':'s'}">${t}</div><div class="box">Culprit: ${r.sol.culprit}<br>Location: ${r.sol.loc}<br>Clues the Caller revealed: ${r.clues.join(', ')||'none'}<br>Hints used: ${r.hintsUsed}<br>Time: ${fmt(r.secs*1000)}</div><button onclick="send({t:'again'});tab=''">PLAY AGAIN</button>`;a.innerHTML=h;return}
+ h+=`<div class="tabs">${tabs.map(t=>`<button class="${t==tab?'on':''}" onclick="tab='${t}';draw()">${t.toUpperCase()}</button>`).join('')}</div>`;
+ if(tab=='call'){const cut=S.cut>Date.now()+off;
+  h+=S.calls.map(c=>c.from=='caller'?`<div class="box"><span class="s">CALLER:</span> ${esc(c.txt)}<div class="bg">[background: ${esc(c.bg||'')}]</div></div>`:c.from=='you'?`<div class="box y">YOU: ${esc(c.txt)}</div>`:`<div class="box s">${esc(c.txt)}</div>`).join('');
+  h+=cut?'<div class="s">Line is dead...</div>':[['calm','Calm him down'],['stall','Stall for time'],['want','Ask what he wants'],['ill','Ask if he is okay'],['where','Ask where he is'],['push','Push him hard']].map(o=>`<button onclick="send({t:'say',id:'${o[0]}'})">${o[1]}</button>`).join('')+`<input id="pq" placeholder="Proof-of-life question"><button onclick="send({t:'pol',txt:$('#pq').value});$('#pq').value=''">PROOF OF LIFE</button>`}
+ else if(tab=='chat')h+=S.chat.map(m=>`<div class="box ${m.r=='sys'?'s':m.r==S.role?'y':'c'}">${m.r=='sys'?'':esc(m.r.toUpperCase())+': '}${esc(m.txt)}</div>`).join('')+`<input id="ci" placeholder="Message your partner"><button onclick="if($('#ci').value){send({t:'chat',txt:$('#ci').value});$('#ci').value=''}">SEND</button>`;
+ else if(tab=='hints')h+=`<div class="box">Shared hints left: ${S.hints}. Each costs 2 minutes.</div><button ${S.hints?'':'disabled'} onclick="send({t:'hint'});tab='chat'">USE A HINT</button>`;
+ else if(tab=='dispatch'){const C=['Rohan Mehta','Dr. Kabir Anand','Sameer'],L=['Old Textile Mill','Water Tower','Abandoned Cinema'];
+  h+=`<div class="box">Both players must confirm the SAME culprit and location within 10 seconds.</div><select onchange="dc=this.value">${C.map(x=>`<option ${x==dc?'selected':''}>${x}</option>`).join('')}</select><select onchange="dl=this.value">${L.map(x=>`<option ${x==dl?'selected':''}>${x}</option>`).join('')}</select><button onclick="send({t:'disp',c:dc,l:dl})">DISPATCH POLICE</button>${S.mine?'<div class="c">Confirmed. Waiting for your partner...</div>':''}`}
+ else h+=li(S.files[tab]||[]);
+ a.innerHTML=h;const n=$('#ci');if(n){n.value=v;if(foc)n.focus()}}
+setInterval(()=>{if(S&&S.endAt&&!S.res){const t=$('#tm');if(t)t.textContent=fmt(rem());if(rem()<120000&&navigator.vibrate&&Math.floor(rem()/1000)%30==0)navigator.vibrate(200)}},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.wakeLock)navigator.wakeLock.request('screen').catch(()=>{})});
+conn();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js");
+</script></body></html>
